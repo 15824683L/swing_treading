@@ -1,4 +1,3 @@
-from flask import Flask
 import pandas as pd
 import numpy as np
 import yfinance as yf
@@ -6,6 +5,8 @@ import time
 import pytz
 import requests
 from datetime import datetime
+from keep_alive import keep_alive
+
 if __name__ == "__main__":
     keep_alive()
     # তারপর আপনার মেইন ফাংশন রান করান
