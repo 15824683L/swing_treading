@@ -5,6 +5,10 @@ import time
 import pytz
 import requests
 from datetime import datetime
+if __name__ == "__main__":
+    keep_alive()
+    # তারপর আপনার মেইন ফাংশন রান করান
+    main()
 
 # ========== SETTINGS ==========
 nifty_50_stocks = [
