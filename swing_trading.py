@@ -19,8 +19,8 @@ nifty_50_stocks = [
     "APOLLOHOSP.NS", "M&M.NS"
 ]
 
-telegram_bot_token = "YOUR_TELEGRAM_BOT_TOKEN"
-telegram_chat_id = "YOUR_TELEGRAM_CHAT_ID"
+telegram_bot_token = "8100205821:AAE0sGJhnA8ySkuSusEXSf9bYU5OU6sFzVg"
+telegram_chat_id = "8191014589"
 
 # ========== FUNCTION PART ==========
 
