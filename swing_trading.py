@@ -159,13 +159,16 @@ def check_tp_sl(symbol, entry_price, direction, yf):
             return "SL Hit ❌"
     return "Running..."
 
+from tqdm import tqdm  # tqdm ইনপোর্ট করুন
+
 # Main Bot Loop
 def run_bot():
     last_signal_time = time.time()
     while True:
         signal_found = False
 
-        for symbol in ALL_SYMBOLS:
+        # Loop through each stock symbol
+        for symbol in tqdm(ALL_SYMBOLS, desc="Fetching data for stocks", unit="stock"):
             # Check Existing Trade
             if symbol in active_trades:
                 df = fetch_ohlcv(symbol, "1d")  # Fetch 1d data for ongoing trade check
@@ -210,4 +213,8 @@ def run_bot():
         # No Signal Alert
         if not signal_found and (time.time() - last_signal_time > 3600):
             send_telegram("⚠️ No Signal in the Last 1 Hour", TELEGRAM_GROUP_CHAT_ID)
-           
+            last_signal_time = time.time()
+
+        time.sleep(60)
+        print("Bot running 24/7...")
+
