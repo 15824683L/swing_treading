@@ -8,6 +8,7 @@ import ssl
 import certifi
 import os
 import pytz
+from tqdm import tqdm  # tqdm ইনপোর্ট করুন
 from keep_alive import keep_alive
 
 # Keep Alive (for Replit or VPS)
