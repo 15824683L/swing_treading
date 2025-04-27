@@ -57,6 +57,9 @@ def fetch_ohlcv(symbol, timeframe):
         interval_map = {"1d": "1d"}  # Only using 1-day interval now
         df = yf.download(tickers=symbol, period="365d", interval=interval_map[timeframe])
         df.reset_index(inplace=True)
+        if df.empty:
+            logging.error(f"No data fetched for {symbol}")
+            return None
         return df
     except Exception as e:
         logging.error(f"Data Fetch Error ({symbol}): {e}")
@@ -68,6 +71,8 @@ def calculate_ema(df, period):
 
 # Detect Trend based on EMA 50/200
 def detect_trend(df):
+    if df is None or df.empty:
+        return "NO_TREND"
     df['ema_50'] = calculate_ema(df, 50)
     df['ema_200'] = calculate_ema(df, 200)
     
@@ -80,6 +85,9 @@ def detect_trend(df):
 
 # Detect Liquidity Grab 
 def detect_liquidity_grab(df):
+    if df is None or df.empty:
+        return "NO_SIGNAL"
+    
     df['high_shift1'] = df['High'].shift(1)
     df['low_shift1'] = df['Low'].shift(1)
     
@@ -92,28 +100,27 @@ def detect_liquidity_grab(df):
     grab_high = latest_high > previous_highs.max()
     grab_low = latest_low < previous_lows.min()
 
-    if grab_high.any():  # ঠিক করা হলো
+    if grab_high.any():
         return "SELL"
-    elif grab_low.any():  # ঠিক করা হলো
+    elif grab_low.any():
         return "BUY"
     else:
         return "NO_SIGNAL"
 
-
 # Detect Order Block
 def detect_order_block(df):
-    # আগের দুটি ক্যান্ডেল বার পেতে
+    if df is None or df.empty:
+        return "NO_SIGNAL"
+    
     last_candle = df.iloc[-1]
     second_last_candle = df.iloc[-2]
     
-    # এখানে আপনি সরাসরি pandas সিরিজের সাথে কাজ করছেন, তাই `.item()` ব্যবহার করুন
     if last_candle['Close'].item() > last_candle['Open'].item() and second_last_candle['Close'].item() < second_last_candle['Open'].item():
         return "BUY"
     elif last_candle['Close'].item() < last_candle['Open'].item() and second_last_candle['Close'].item() > second_last_candle['Open'].item():
         return "SELL"
     else:
         return "NO_SIGNAL"
-
 
 # Final Signal Combining everything
 def final_signal(daily_df):
@@ -203,11 +210,4 @@ def run_bot():
         # No Signal Alert
         if not signal_found and (time.time() - last_signal_time > 3600):
             send_telegram("⚠️ No Signal in the Last 1 Hour", TELEGRAM_GROUP_CHAT_ID)
-            last_signal_time = time.time()
-
-        time.sleep(60)
-        print("Bot running 24/7...")
-
-# Run the Bot
-if __name__ == "__main__":
-    run_bot()
+           
