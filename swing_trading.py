@@ -85,15 +85,19 @@ def detect_liquidity_grab(df):
     latest_high = df['High'].iloc[-1]
     latest_low = df['Low'].iloc[-1]
     
-    grab_high = latest_high > df['high_shift1'].max()
-    grab_low = latest_low < df['low_shift1'].min()
+    previous_highs = df['high_shift1'].dropna()
+    previous_lows = df['low_shift1'].dropna()
     
-    if grab_high:
+    grab_high = latest_high > previous_highs.max()
+    grab_low = latest_low < previous_lows.min()
+
+    if bool(grab_high):
         return "SELL"
-    elif grab_low:
+    elif bool(grab_low):
         return "BUY"
     else:
         return "NO_SIGNAL"
+
 
 # Detect Order Block
 def detect_order_block(df):
