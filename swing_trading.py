@@ -92,12 +92,13 @@ def detect_liquidity_grab(df):
     grab_high = latest_high > previous_highs.max()
     grab_low = latest_low < previous_lows.min()
 
-    if bool(grab_high):
+    if grab_high.any():  # ঠিক করা হলো
         return "SELL"
-    elif bool(grab_low):
+    elif grab_low.any():  # ঠিক করা হলো
         return "BUY"
     else:
         return "NO_SIGNAL"
+
 
 # Detect Order Block
 def detect_order_block(df):
