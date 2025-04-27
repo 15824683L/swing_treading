@@ -78,7 +78,7 @@ def detect_trend(df):
     else:
         return "NO_TREND"
 
-# Detect Liquidity Grab (4-hour timeframe data)
+# Detect Liquidity Grab 
 def detect_liquidity_grab(df):
     df['high_shift1'] = df['High'].shift(1)
     df['low_shift1'] = df['Low'].shift(1)
@@ -102,15 +102,18 @@ def detect_liquidity_grab(df):
 
 # Detect Order Block
 def detect_order_block(df):
+    # আগের দুটি ক্যান্ডেল বার পেতে
     last_candle = df.iloc[-1]
     second_last_candle = df.iloc[-2]
-
-    if last_candle['Close'] > last_candle['Open'] and second_last_candle['Close'] < second_last_candle['Open']:
-        return "BULLISH_OB"  # Possible BUY
-    elif last_candle['Close'] < last_candle['Open'] and second_last_candle['Close'] > second_last_candle['Open']:
-        return "BEARISH_OB"  # Possible SELL
+    
+    # এখানে আপনি সরাসরি pandas সিরিজের সাথে কাজ করছেন, তাই `.item()` ব্যবহার করুন
+    if last_candle['Close'].item() > last_candle['Open'].item() and second_last_candle['Close'].item() < second_last_candle['Open'].item():
+        return "BUY"
+    elif last_candle['Close'].item() < last_candle['Open'].item() and second_last_candle['Close'].item() > second_last_candle['Open'].item():
+        return "SELL"
     else:
-        return "NO_OB"
+        return "NO_SIGNAL"
+
 
 # Final Signal Combining everything
 def final_signal(daily_df):
