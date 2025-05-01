@@ -1,221 +1,314 @@
 import time
+    
 import yfinance as yf
+    
 import requests
+    
 import logging
-import pandas as pd
+    
 from datetime import datetime
+    
+import pytz  # Kolkata Time (IST) এর জন্য
+    
 import ssl
+    
 import certifi
+    
 import os
-import pytz
-from tqdm import tqdm  # tqdm ইনপোর্ট করুন
+    
 from keep_alive import keep_alive
+    
 
-# Keep Alive (for Replit or VPS)
+    
 keep_alive()
+    
 
-# SSL Certificates
+    
+# SSL cert path set
+    
 os.environ['SSL_CERT_FILE'] = certifi.where()
+    
 
+    
 # Telegram Bot Config
+    
 TELEGRAM_BOT_TOKEN = "8100205821:AAE0sGJhnA8ySkuSusEXSf9bYU5OU6sFzVg"
-TELEGRAM_GROUP_CHAT_ID = "@SwingTreadingSmartbot"
+    
+TELEGRAM_CHAT_ID = "-1002689167916"  # Use channel username with '@'
+    
 
-# Stock List
-INDIAN_STOCKS = ["RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS", "ICICIBANK.NS", "HINDUNILVR.NS",
-    "KOTAKBANK.NS", "LT.NS", "SBIN.NS", "BHARTIARTL.NS", "BAJFINANCE.NS", "ASIANPAINT.NS",
-    "HCLTECH.NS", "AXISBANK.NS", "ITC.NS", "MARUTI.NS", "WIPRO.NS", "SUNPHARMA.NS",
-    "POWERGRID.NS", "TITAN.NS", "TATAMOTORS.NS", "ONGC.NS", "NTPC.NS", "ULTRACEMCO.NS",
-    "BAJAJFINSV.NS", "TECHM.NS", "HDFC.NS", "NESTLEIND.NS", "TATASTEEL.NS", "JSWSTEEL.NS",
-    "DIVISLAB.NS", "HDFCLIFE.NS", "GRASIM.NS", "DRREDDY.NS", "ADANIPORTS.NS", "EICHERMOT.NS",
-    "CIPLA.NS", "BPCL.NS", "BRITANNIA.NS", "SHREECEM.NS", "HINDALCO.NS", "COALINDIA.NS",
-    "HEROMOTOCO.NS", "UPL.NS", "SBILIFE.NS", "INDUSINDBK.NS", "TATACONSUM.NS", "BAJAJ-AUTO.NS",
-    "APOLLOHOSP.NS", "M&M.NS"]
+    
+# Top 45 Indian Stocks (NSE Symbols)
+    
+INDIAN_STOCKS = [
+    
+    "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS", "ICICIBANK.NS",
+    
+    "HINDUNILVR.NS", "LT.NS", "SBIN.NS", "KOTAKBANK.NS", "ITC.NS",
+    
+    "AXISBANK.NS", "BHARTIARTL.NS", "ASIANPAINT.NS", "BAJFINANCE.NS", "HCLTECH.NS",
+    
+    "MARUTI.NS", "SUNPHARMA.NS", "NESTLEIND.NS", "WIPRO.NS", "TITAN.NS",
+    
+    "ULTRACEMCO.NS", "HDFCLIFE.NS", "POWERGRID.NS", "TECHM.NS", "ONGC.NS",
+    
+    "NTPC.NS", "COALINDIA.NS", "JSWSTEEL.NS", "TATASTEEL.NS", "BPCL.NS",
+    
+    "BRITANNIA.NS", "DIVISLAB.NS", "ADANIENT.NS", "ADANIPORTS.NS", "GRASIM.NS",
+    
+    "CIPLA.NS", "EICHERMOT.NS", "HEROMOTOCO.NS", "HINDALCO.NS", "DRREDDY.NS",
+    
+    "BAJAJFINSV.NS", "SBILIFE.NS", "BAJAJ-AUTO.NS", "INDUSINDBK.NS", "M&M.NS"
+    
+]
+    
 
-ALL_SYMBOLS = INDIAN_STOCKS 
+    
+ALL_SYMBOLS = INDIAN_STOCKS
+    
 
-# Timeframes
-TIMEFRAMES = {"Position": "1d"}  # Only 1d timeframe now
+    
+timeframes = {
+    
+    "Intraday 15m": "15m",
+    
+    "Intraday 30m": "30m"
+    
+}
+    
 
-# Active Trades
+    
 active_trades = {}
+    
+last_signal_time = time.time()
+    
 
-# Logging
+    
 logging.basicConfig(filename="trade_bot.log", level=logging.INFO, format="%(asctime)s - %(message)s")
+    
 
-# Telegram Message Sender
-def send_telegram(message, chat_id):
+    
+# Telegram Sender
+    
+def send_telegram_message(message, chat_id):
+    
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": chat_id, "text": message, "parse_mode": "Markdown"}
+    
+    data = {"chat_id": chat_id, "text": message, "parse_mode": "Markdown"}
+    
     try:
-        requests.post(url, data=payload)
+    
+        response = requests.post(url, data=data)
+    
+        if response.status_code != 200:
+    
+            print(f"Telegram error: {response.text}")
+    
     except Exception as e:
-        logging.error(f"Telegram Error: {e}")
+    
+        print(f"Telegram send failed: {e}")
+    
 
-# Fetch Data
-def fetch_ohlcv(symbol, timeframe):
+    
+# Data fetcher
+    
+def fetch_data(symbol, tf):
+    
+    interval_map = {"15m": "15m", "30m": "30m"}
+    
     try:
-        interval_map = {"1d": "1d"}  # Only using 1-day interval now
-        df = yf.download(tickers=symbol, period="365d", interval=interval_map[timeframe])
+    
+        df = yf.download(tickers=symbol, period="2d", interval=interval_map[tf])
+    
         df.reset_index(inplace=True)
-        if df.empty:
-            logging.error(f"No data fetched for {symbol}")
-            return None
+    
+        df.rename(columns={"Open": "open", "High": "high", "Low": "low", "Close": "close", "Volume": "volume"}, inplace=True)
+    
+        df = df[['Datetime' if 'Datetime' in df.columns else 'Date', 'open', 'high', 'low', 'close', 'volume']]
+    
+        df.columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume']
+    
         return df
+    
     except Exception as e:
-        logging.error(f"Data Fetch Error ({symbol}): {e}")
+    
+        logging.error(f"Error fetching {symbol} - {e}")
+    
         return None
-
-# Calculate EMA
-def calculate_ema(df, period):
-    return df['Close'].ewm(span=period, adjust=False).mean()
-
-# Detect Trend based on EMA 50/200
-def detect_trend(df):
-    if df is None or df.empty:
-        return "NO_TREND"
-    df['ema_50'] = calculate_ema(df, 50)
-    df['ema_200'] = calculate_ema(df, 200)
     
-    if df['ema_50'].iloc[-1] > df['ema_200'].iloc[-1]:
-        return "UP"
-    elif df['ema_50'].iloc[-1] < df['ema_200'].iloc[-1]:
-        return "DOWN"
-    else:
-        return "NO_TREND"
 
-# Detect Liquidity Grab 
-def detect_liquidity_grab(df):
-    if df is None or df.empty:
-        return "NO_SIGNAL"
     
-    df['high_shift1'] = df['High'].shift(1)
-    df['low_shift1'] = df['Low'].shift(1)
+# Strategy Logic
     
-    latest_high = df['High'].iloc[-1]
-    latest_low = df['Low'].iloc[-1]
+def calculate_vwap(df):
     
-    previous_highs = df['high_shift1'].dropna()
-    previous_lows = df['low_shift1'].dropna()
+    df['vwap'] = (df['volume'] * (df['high'] + df['low'] + df['close']) / 3).cumsum() / df['volume'].cumsum()
     
-    grab_high = latest_high > previous_highs.max()
-    grab_low = latest_low < previous_lows.min()
-
-    if grab_high.any():
-        return "SELL"
-    elif grab_low.any():
-        return "BUY"
-    else:
-        return "NO_SIGNAL"
-
-# Detect Order Block
-def detect_order_block(df):
-    if df is None or df.empty:
-        return "NO_SIGNAL"
+    return df
     
-    last_candle = df.iloc[-1]
-    second_last_candle = df.iloc[-2]
+
     
-    if last_candle['Close'].item() > last_candle['Open'].item() and second_last_candle['Close'].item() < second_last_candle['Open'].item():
-        return "BUY"
-    elif last_candle['Close'].item() < last_candle['Open'].item() and second_last_candle['Close'].item() > second_last_candle['Open'].item():
-        return "SELL"
-    else:
-        return "NO_SIGNAL"
-
-# Final Signal Combining everything
-def final_signal(daily_df):
-    trend = detect_trend(daily_df)
-    liquidity_signal = detect_liquidity_grab(daily_df)
-    order_block_signal = detect_order_block(daily_df)
-
-    # BUY Setup
-    if liquidity_signal == "BUY" and order_block_signal == "BULLISH_OB" and trend == "UP":
-        return "BUY"
-
-    # SELL Setup
-    elif liquidity_signal == "SELL" and order_block_signal == "BEARISH_OB" and trend == "DOWN":
-        return "SELL"
+def liquidity_grab_order_block_with_vwap(df):
     
-    else:
-        return "NO_SIGNAL"
-
-# Check TP/SL
-def check_tp_sl(symbol, entry_price, direction, yf):
-    live_price = yf.download(symbol, period="1d", interval="5m", progress=False)['Close'].iloc[-1]
+    df = calculate_vwap(df)
     
-    if direction == "BUY":
-        tp = entry_price * 1.01
-        sl = entry_price * 0.99
-        if live_price >= tp:
-            return "TP Hit ✅"
-        elif live_price <= sl:
-            return "SL Hit ❌"
-    elif direction == "SELL":
-        tp = entry_price * 0.99
-        sl = entry_price * 1.01
-        if live_price <= tp:
-            return "TP Hit ✅"
-        elif live_price >= sl:
-            return "SL Hit ❌"
-    return "Running..."
 
-from tqdm import tqdm  # tqdm ইনপোর্ট করুন
+    
+    df['high_shift'] = df['high'].shift(1)
+    
+    df['low_shift'] = df['low'].shift(1)
+    
+    liquidity_grab = (df['high'] > df['high_shift']) & (df['low'] < df['low_shift'])
+    
+    order_block = df['close'] > df['open']
+    
+    close_above_vwap = df['close'] > df['vwap']
+    
+    close_below_vwap = df['close'] < df['vwap']
+    
 
-# Main Bot Loop
-def run_bot():
-    last_signal_time = time.time()
-    while True:
-        signal_found = False
+    
+    if liquidity_grab.iloc[-1] and order_block.iloc[-1] and close_above_vwap.iloc[-1]:
+    
+        entry = round(df['close'].iloc[-1], 2)
+    
+        sl = round(df['low'].iloc[-2], 2)
+    
+        tp = round(entry + (entry - sl) * 2, 2)
+    
+        tsl = round(entry + (entry - sl) * 1.5, 2)
+    
+        return "BUY", entry, sl, tp, tsl, "\U0001F7E2"
+    
+    elif liquidity_grab.iloc[-1] and not order_block.iloc[-1] and close_below_vwap.iloc[-1]:
+    
+        entry = round(df['close'].iloc[-1], 2)
+    
+        sl = round(df['high'].iloc[-2], 2)
+    
+        tp = round(entry - (sl - entry) * 2, 2)
+    
+        tsl = round(entry - (sl - entry) * 1.5, 2)
+    
+        return "SELL", entry, sl, tp, tsl, "\U0001F534"
+    
+    return "NO SIGNAL", None, None, None, None, None
+    
 
-        # Loop through each stock symbol
-        for symbol in tqdm(ALL_SYMBOLS, desc="Fetching data for stocks", unit="stock"):
-            # Check Existing Trade
-            if symbol in active_trades:
-                df = fetch_ohlcv(symbol, "1d")  # Fetch 1d data for ongoing trade check
-                if df is not None and not df.empty:
-                    last_price = df['Close'].iloc[-1]
-                    trade = active_trades[symbol]
-                    now = datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M')
+    
+kolkata_tz = pytz.timezone("Asia/Kolkata")
+    
 
-                    if trade['direction'] == "BUY" and (last_price >= trade['tp'] or last_price <= trade['sl']):
-                        result = "TP HIT" if last_price >= trade['tp'] else "SL HIT"
-                        emoji = "✅" if last_price >= trade['tp'] else "🛑"
-                        send_telegram(f"{emoji} *{result} for {symbol}*\nTime: `{now}`\nPrice: `{last_price}`", TELEGRAM_GROUP_CHAT_ID)
-                        del active_trades[symbol]
+    
+# Main Loop
+    
+while True:
+    
+    signal_found = False
+    
 
-                    elif trade['direction'] == "SELL" and (last_price <= trade['tp'] or last_price >= trade['sl']):
-                        result = "TP HIT" if last_price <= trade['tp'] else "SL HIT"
-                        emoji = "✅" if last_price <= trade['tp'] else "🛑"
-                        send_telegram(f"{emoji} *{result} for {symbol}*\nTime: `{now}`\nPrice: `{last_price}`", TELEGRAM_GROUP_CHAT_ID)
-                        del active_trades[symbol]
-                continue
+    
+    for stock in ALL_SYMBOLS:
+    
+        if stock in active_trades:
+    
+            df = fetch_data(stock, "15m")
+    
+            if df is not None and not df.empty:
+    
+                last_price = df['close'].iloc[-1]
+    
+                trade = active_trades[stock]
+    
+                now_time = datetime.now(kolkata_tz).strftime('%Y-%m-%d %H:%M')
+    
 
-            # New Trade Check
-            daily_df = fetch_ohlcv(symbol, "1d")
+    
+                if trade['direction'] == "BUY" and last_price >= trade['tp']:
+    
+                    send_telegram_message(f"✅ *TP HIT for {stock}*\nTime: `{now_time}`\nPrice: `{last_price}`\nSignal: BUY", TELEGRAM_CHAT_ID)
+    
+                    del active_trades[stock]
+    
+                elif trade['direction'] == "BUY" and last_price <= trade['sl']:
+    
+                    send_telegram_message(f"🛑 *SL HIT for {stock}*\nTime: `{now_time}`\nPrice: `{last_price}`\nSignal: BUY", TELEGRAM_CHAT_ID)
+    
+                    del active_trades[stock]
+    
+                elif trade['direction'] == "SELL" and last_price <= trade['tp']:
+    
+                    send_telegram_message(f"✅ *TP HIT for {stock}*\nTime: `{now_time}`\nPrice: `{last_price}`\nSignal: SELL", TELEGRAM_CHAT_ID)
+    
+                    del active_trades[stock]
+    
+                elif trade['direction'] == "SELL" and last_price >= trade['sl']:
+    
+                    send_telegram_message(f"🛑 *SL HIT for {stock}*\nTime: `{now_time}`\nPrice: `{last_price}`\nSignal: SELL", TELEGRAM_CHAT_ID)
+    
+                    del active_trades[stock]
+    
+            continue
+    
 
-            if daily_df is not None:
-                signal = final_signal(daily_df)
-                if signal != "NO_SIGNAL":
-                    entry_price = daily_df['Close'].iloc[-1]
-                    tp_sl_status = check_tp_sl(symbol, entry_price, signal, yf)
-
-                    now = datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M:%S')
+    
+        for label, tf in timeframes.items():
+    
+            df = fetch_data(stock, tf)
+    
+            if df is not None and not df.empty:
+    
+                signal, entry, sl, tp, tsl, emoji = liquidity_grab_order_block_with_vwap(df)
+    
+                if signal != "NO SIGNAL":
+    
+                    signal_time = datetime.now(kolkata_tz).strftime('%Y-%m-%d %H:%M:%S')
+    
                     msg = (
-                        f"📈 *{signal} Signal for {symbol}*\n"
-                        f"🕰️ Time: `{now}`\n"
-                        f"💰 Entry: `{entry_price}`\n"
-                        f"🎯 Status: {tp_sl_status}"
+    
+                        f"{emoji} *{signal} Signal for {stock}*\n"
+    
+                        f"Type: {label}\nTimeframe: {tf}\nTime: `{signal_time}`\n"
+    
+                        f"Entry: `{entry}`\nSL: `{sl}`\nTP: `{tp}`\nTSL: `{tsl}`"
+    
                     )
-                    send_telegram(msg, TELEGRAM_GROUP_CHAT_ID)
-                    active_trades[symbol] = {"entry": entry_price, "sl": entry_price * 0.98, "tp": entry_price * 1.02, "direction": signal}
+    
+                    send_telegram_message(msg, TELEGRAM_CHAT_ID)
+    
+
+    
+                    active_trades[stock] = {
+    
+                        "signal_time": signal_time,
+    
+                        "entry": entry,
+    
+                        "sl": sl,
+    
+                        "tp": tp,
+    
+                        "direction": signal
+    
+                    }
+    
                     signal_found = True
+    
+                    break
+    
+        if signal_found:
+    
+            break
+    
 
-        # No Signal Alert
-        if not signal_found and (time.time() - last_signal_time > 3600):
-            send_telegram("⚠️ No Signal in the Last 1 Hour", TELEGRAM_GROUP_CHAT_ID)
-            last_signal_time = time.time()
+    
+    if not signal_found and (time.time() - last_signal_time > 3600):
+    
+        send_telegram_message("⚠️ No Signal in the Last 1 Hour (Indian Indices)", TELEGRAM_CHAT_ID)
+    
+        last_signal_time = time.time()
+    
 
-        time.sleep(60)
-        print("Bot running 24/7...")
-
+    
+    time.sleep(60)
+  
