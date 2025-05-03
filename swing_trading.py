@@ -16,7 +16,7 @@ os.environ['SSL_CERT_FILE'] = certifi.where()
 # Telegram Bot Config
 TELEGRAM_BOT_TOKEN = "8100205821:AAE0sGJhnA8ySkuSusEXSf9bYU5OU6sFzVg"
 TELEGRAM_CHAT_ID = "8191014589"
-TELEGRAM_GROUP_CHAT_ID = "-1002689167916"
+TELEGRAM_GROUP_CHAT_ID = ""
 
 # Top 20 Indian Stocks + Indexes (Yahoo Tickers)
 INDIAN_STOCKS = [
