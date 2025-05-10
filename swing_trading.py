@@ -60,7 +60,7 @@ def fetch_data(symbol, tf):
         logging.error(f"Error fetching {symbol} - {e}")
         return None
 
-# def liquidity_grab_order_block(df):
+def liquidity_grab_order_block(df):
     df['high_shift'] = df['high'].shift(1)
     df['low_shift'] = df['low'].shift(1)
     liquidity_grab = (df['high'] > df['high_shift']) & (df['low'] < df['low_shift'])
@@ -69,16 +69,14 @@ def fetch_data(symbol, tf):
     if liquidity_grab.iloc[-1] and order_block.iloc[-1]:
         entry = round(df['close'].iloc[-1], 2)
         sl = round(df['low'].iloc[-2], 2)
-        risk = round(entry - sl, 2)
-        tp = round(entry + risk, 2)
-        tsl = round(entry + risk * 0.75, 2)  # Optional: TSL at 75% of TP
+        tp = round(entry + (entry - sl), 2)  # 1:1 Risk:Reward
+        tsl = round(entry + (entry - sl) * 0.75, 2)
         return "BUY", entry, sl, tp, tsl, "\U0001F7E2"
     elif liquidity_grab.iloc[-1] and not order_block.iloc[-1]:
         entry = round(df['close'].iloc[-1], 2)
         sl = round(df['high'].iloc[-2], 2)
-        risk = round(sl - entry, 2)
-        tp = round(entry - risk, 2)
-        tsl = round(entry - risk * 0.75, 2)
+        tp = round(entry - (sl - entry), 2)  # 1:1 Risk:Reward
+        tsl = round(entry - (sl - entry) * 0.75, 2)
         return "SELL", entry, sl, tp, tsl, "\U0001F534"
     return "NO SIGNAL", None, None, None, None, None
 # Main Loop
